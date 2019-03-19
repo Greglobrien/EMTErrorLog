@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Elemental MediaTailor Error Logging Tool
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  EMTErrorLog:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: EmtErrors.lambda_handler
+      Runtime: python3.7
+      Environment:
+        Variables:
+          LOG_LEVEL: error
+          DESTINATION_BUCKET: emt-error-logs
+
+Outputs:
+  EMTErrorLog:
+    Description: "Elemental MediaTailor Error Logging Tool ARN"
+    Value: !GetAtt EMTErrorLog.Arn
+  EMTErrorLogIamRole:
+    Description: "Implicit IAM Role created for Elemental MediaTailor Error Logging Tool"
+    Value: !GetAtt EMTErrorLog.Arn
