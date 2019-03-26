@@ -1,1 +1,5 @@
 requirements/
+event-2.json
+packaged.yml
+packaged*
+*.DS_Store

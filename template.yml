@@ -6,23 +6,89 @@ Description: >
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 120
 
 Resources:
+## Creating Lambda role for deployment
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-LambdaRole"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-LambdaPolicy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Sid: BucketAccess
+                Effect: Allow
+                Action:
+                  - "s3:*"
+                Resource: "*"
+              -
+                Sid: LoggingAccess
+                Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:StartQuery"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeQueries"
+                  - "logs:GetQueryResults"
+                  - "logs:StopQuery"
+                  - "logs:CreateLogGroup"
+                Resource: "*"
+              -
+                Sid: MetricAccess
+                Effect: Allow
+                Action:
+                  - "cloudwatch:PutMetricData"
+                  - "cloudwatch:GetMetricData"
+                  - "cloudwatch:GetMetricStatistics"
+                  - "cloudwatch:ListMetrics"
+                Resource: "*"
+
   EMTErrorLog:
     Type: AWS::Serverless::Function
     Properties:
       Handler: EmtErrors.lambda_handler
       Runtime: python3.7
+      Role: !GetAtt LambdaRole.Arn
       Environment:
         Variables:
-          LOG_LEVEL: error
-          DESTINATION_BUCKET: emt-error-logs
+          LOG_LEVEL: info
+          DESTINATION_BUCKET: go-write-test
+          START_INSIGHT_PAUSE: 45
+
+  LogGroupLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EMTErrorLog.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: !Sub "logs.${AWS::Region}.amazonaws.com"
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:MediaTailor/AdDecisionServerInteractions:*"
+
+  SubscriptionFilter:
+    Type: "AWS::Logs::SubscriptionFilter"
+    "DependsOn": "LogGroupLambdaInvokePermission"
+    Properties:
+      DestinationArn: !GetAtt EMTErrorLog.Arn
+      FilterPattern: "{$.eventType = *ERROR*}"
+      LogGroupName: "MediaTailor/AdDecisionServerInteractions"
 
 Outputs:
   EMTErrorLog:
     Description: "Elemental MediaTailor Error Logging Tool ARN"
     Value: !GetAtt EMTErrorLog.Arn
   EMTErrorLogIamRole:
-    Description: "Implicit IAM Role created for Elemental MediaTailor Error Logging Tool"
+    Description: "IAM Role for Elemental MediaTailor Error Logging Tool"
     Value: !GetAtt EMTErrorLog.Arn

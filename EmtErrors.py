@@ -27,17 +27,17 @@ level = logging.getLevelName(log_level)
 logger.setLevel(level)
 
 ##log Boto & Botocore Versions, must be different for log query to work
-logger.error("boto3 version:" + boto3.__version__ + "  botocore version:" + botocore.__version__)
+logger.info("boto3 version:" + boto3.__version__ + "  botocore version:" + botocore.__version__)
 
 
-def save_to_bucket(output_to_bucket):
+def save_to_bucket(filename, output_to_bucket):
     ## pulled from Environment Varibales in Lambda
     aws_bucket_name = os.environ['DESTINATION_BUCKET']
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(aws_bucket_name)
     t = time.time()
-    t_str = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(t))
-    path = ('adid-%s_reid-%s_%s' % (output_to_bucket['adid'], output_to_bucket['reid'], t_str))
+    t_str = time.strftime('%m-%dT%H:%M:%S', time.gmtime(t))
+    path = ('%s_%s_%s_%s' % (filename, output_to_bucket['adid'], output_to_bucket['reid'], t_str))
     data = json.dumps(output_to_bucket, sort_keys=True, indent=4, ensure_ascii=False)
 
     bucket.put_object(
@@ -66,6 +66,8 @@ def results_query(cw_logs, query_Id):
     last_adid = 1
     last_reid = 1
     logger.info("Results Query - Query Result: %s " % (query_result))
+    t = time.time()
+    t_str = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(t))
     if (query_result['results']):
         for index, value in enumerate(query_result['results']):
             #print(index, value[1]['value'])  ## in case there is an issue, check string is present
@@ -83,7 +85,8 @@ def results_query(cw_logs, query_Id):
         queries = {"status": 200,
                    "data": array,
                    "adid": last_adid,
-                   "reid": last_reid}
+                   "reid": last_reid,
+                   "gmtTime": t_str}
     else:
         queries = {"status": 404}
     return queries
@@ -107,10 +110,12 @@ def check_query(cw_logs, log_group, query_Id):
 
 
 def start_insight(cw_logs, log_group, session_Id):
+    wait_time = os.environ['START_INSIGHT_PAUSE']
+    time.sleep(int(wait_time)) ## wait time for execution of search
     timenow = int(time.time())
     start_time = timenow - 420
     logger.info("timenow %s       hr_before %s" % (timenow, start_time))
-    ##session_Id = '3a4804e5-8c89-4d62-9807-b15df0a21984' ## -- Dev Account testing
+    #session_Id = '3a4804e5-8c89-4d62-9807-b15df0a21984' ## -- Dev Account testing
     query = ("fields @timestamp, @message\n| sort @timestamp desc\n| limit 20\n| filter sessionId like /(?i)(%s)/" % session_Id)
     logger.info("query: %s" % query)
     ### for testing Start = 1552503526 & End = 1552507126 -- Dev Account
@@ -176,13 +181,14 @@ def lambda_handler(event, context):
         check_query(cw_logs, log_group, insight_Id)
         cleaned_data = results_query(cw_logs, insight_Id)
         logger.info("Lambda_Handler - Cleaned Data Status: %s" % (cleaned_data['status']))
+        event_type = event_type.replace("ERROR_", "")
         ## Write logs out to file, along with additional information
         if (cleaned_data['status'] == 200):
             cleaned_data["Event_Type"] = event_type
             cleaned_data["MediaTailor_Config"] = config_name
             cleaned_data["Ad_Error"] = ads_error
             logger.error("Status = 200 Cleaned Data: %s " % cleaned_data)
-            printed_out = save_to_bucket(cleaned_data)
+            printed_out = save_to_bucket(event_type, cleaned_data)
             logger.error(printed_out)
 
 
