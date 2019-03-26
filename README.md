@@ -20,4 +20,4 @@ You can then deploy this tool into production in AWS nearly as easily
 
 `sam package --template-file template.yml --s3-bucket S3_BUCKET_NAME --output-template-file packaged.yml`
 
-`sam deploy --template-file packaged.yml --stack-name <STACK NAME> --capabilities CAPABILITY_IAM`
+`sam deploy --template-file packaged.yml --stack-name <STACK NAME> --capabilities CAPABILITY_NAMED_IAM`
