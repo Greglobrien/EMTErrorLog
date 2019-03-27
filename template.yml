@@ -24,6 +24,7 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
+        #Very Board Access Policies, this needs to refined to just specific requirements
         - PolicyName: !Sub "${AWS::StackName}-LambdaPolicy"
           PolicyDocument:
             Version: 2012-10-17
@@ -64,8 +65,11 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       Environment:
         Variables:
+          #Log Level for Cloudwatch Logs
           LOG_LEVEL: info
+          #Output bucket for finished files
           DESTINATION_BUCKET: go-write-test
+          #Timeout Time period for searching insights
           START_INSIGHT_PAUSE: 45
 
   LogGroupLambdaInvokePermission:
@@ -75,6 +79,7 @@ Resources:
       Action: "lambda:InvokeFunction"
       Principal: !Sub "logs.${AWS::Region}.amazonaws.com"
       SourceAccount: !Ref 'AWS::AccountId'
+      ##Assumes default location for MediaTailor Logs
       SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:MediaTailor/AdDecisionServerInteractions:*"
 
   SubscriptionFilter:
