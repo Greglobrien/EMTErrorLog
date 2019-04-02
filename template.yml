@@ -9,6 +9,7 @@ Globals:
     Timeout: 120
 
 Resources:
+
 ## Creating Lambda role for deployment
   LambdaRole:
     Type: AWS::IAM::Role
@@ -60,6 +61,7 @@ Resources:
   EMTErrorLog:
     Type: AWS::Serverless::Function
     Properties:
+      Description: "Elemental MediaTailor Error Logging Tool"
       Handler: EmtErrors.lambda_handler
       Runtime: python3.7
       Role: !GetAtt LambdaRole.Arn
@@ -71,6 +73,8 @@ Resources:
           DESTINATION_BUCKET: go-write-test
           #Timeout Time period for searching insights
           START_INSIGHT_PAUSE: 45
+      Tags:
+        Purpose: "Dev-testing"
 
   LogGroupLambdaInvokePermission:
     Type: AWS::Lambda::Permission
