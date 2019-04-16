@@ -37,7 +37,8 @@ def save_to_bucket(filename, output_to_bucket):
     bucket = s3.Bucket(aws_bucket_name)
     t = time.time()
     t_str = time.strftime('%m-%dT%H:%M:%S', time.gmtime(t))
-    path = ('%s_%s_%s_%s' % (filename, output_to_bucket['adid'], output_to_bucket['reid'], t_str))
+    filename = filename.replace("ERROR_", "")
+    path = ('%s_%s_%s_%s' % (filename, output_to_bucket['ad_adid'], output_to_bucket['ad_reid'], t_str))
     data = json.dumps(output_to_bucket, sort_keys=True, indent=4, ensure_ascii=False)
 
     bucket.put_object(
@@ -84,9 +85,9 @@ def results_query(cw_logs, query_Id):
             array.append(formatted_json)
         queries = {"status": 200,
                    "data": array,
-                   "adid": last_adid,
-                   "reid": last_reid,
-                   "gmtTime": t_str}
+                   "ad_adid": last_adid,
+                   "ad_reid": last_reid,
+                   "ad_gmt_time": t_str}
     else:
         queries = {"status": 404}
     return queries
@@ -109,14 +110,16 @@ def check_query(cw_logs, log_group, query_Id):
                     break
 
 
-def start_insight(cw_logs, log_group, session_Id):
+def start_insight(cw_logs, log_group, session_Id, request_Id):
     wait_time = os.environ['START_INSIGHT_PAUSE']
     time.sleep(int(wait_time)) ## wait time for execution of search
     timenow = int(time.time())
     start_time = timenow - 420
     logger.info("timenow %s       hr_before %s" % (timenow, start_time))
     #session_Id = '3a4804e5-8c89-4d62-9807-b15df0a21984' ## -- Dev Account testing
-    query = ("fields @timestamp, @message\n| sort @timestamp desc\n| limit 20\n| filter sessionId like /(?i)(%s)/" % session_Id)
+    #request_Id = '5a3fc32a-a7ad-4feb-b0ab-442cde648d29'  ## -- Dev Account testing
+    query = ("fields @timestamp, @message\n| sort @timestamp desc\n| limit 20\n| filter sessionId like /(?i)(%s)/"
+             "\n | filter requestId like /(?i)(%s)/" % (session_Id, request_Id))
     logger.info("query: %s" % query)
     ### for testing Start = 1552503526 & End = 1552507126 -- Dev Account
     response = cw_logs.start_query(
@@ -165,6 +168,7 @@ def lambda_handler(event, context):
         event_type = ads_log['eventType']
         config_name = ads_log['originId']
         sessionId = ads_log['sessionId']
+        requestId = ads_log['requestId']
         logger.info(sessionId)
 
         if ('error' in ads_log.keys()):
@@ -172,21 +176,27 @@ def lambda_handler(event, context):
         else:
             ads_error = "No Error log Present"
 
+        if ('adsRequestUrl' in ads_log.keys()):
+            ads_url = ads_log['adsRequestUrl']
+        else:
+            ads_url = "No Ads Request Url Present"
         logger.error("Event type: %s Config Name: %s       Event Time: %s Error: %s       Message: %s" % (event_type, config_name, event_time, ads_error, ads_log))
         emit_metric(cw_client, metric_name, namespace, config_name)
 
         ##Log Event data from MediaTailor to Json in S3
         cw_logs = boto3.client('logs')
-        insight_Id = start_insight(cw_logs, log_group, sessionId)
+        insight_Id = start_insight(cw_logs, log_group, sessionId, requestId)
         check_query(cw_logs, log_group, insight_Id)
         cleaned_data = results_query(cw_logs, insight_Id)
         logger.info("Lambda_Handler - Cleaned Data Status: %s" % (cleaned_data['status']))
-        event_type = event_type.replace("ERROR_", "")
         ## Write logs out to file, along with additional information
         if (cleaned_data['status'] == 200):
-            cleaned_data["Event_Type"] = event_type
-            cleaned_data["MediaTailor_Config"] = config_name
-            cleaned_data["Ad_Error"] = ads_error
+            cleaned_data['ad_event_type'] = event_type
+            cleaned_data['channel_id'] = config_name
+            cleaned_data['ad_error'] = ads_error
+            cleaned_data['ad_request_Url'] = ads_url
+            cleaned_data['ad_request_Id'] = requestId
+            cleaned_data['ad_session_Id'] = sessionId
             logger.error("Status = 200 Cleaned Data: %s " % cleaned_data)
             printed_out = save_to_bucket(event_type, cleaned_data)
             logger.error(printed_out)
