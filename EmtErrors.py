@@ -132,25 +132,25 @@ def start_insight(cw_logs, log_group, session_Id, request_Id):
     return response['queryId']
 
 
-def emit_metric(cw_client, metric_name, namespace, config_name):
-    logger.info("adding count to metric %s in namespace %s" % (metric_name, namespace))
-    dimension_name = "Configuration Name"
-    cw_client.put_metric_data(
-        Namespace = namespace,
-        MetricData = [
-            {
-                'MetricName': metric_name,
-                'Dimensions': [
-                    {
-                        'Name' : dimension_name,
-                        'Value' : config_name
-                    },
-                ],
-                "Value": 1,
-                "Unit": "Count"
-            }
-        ]
-    )
+# def emit_metric(cw_client, metric_name, namespace, config_name):
+#     logger.info("adding count to metric %s in namespace %s" % (metric_name, namespace))
+#     dimension_name = "Configuration Name"
+#     cw_client.put_metric_data(
+#         Namespace = namespace,
+#         MetricData = [
+#             {
+#                 'MetricName': metric_name,
+#                 'Dimensions': [
+#                     {
+#                         'Name' : dimension_name,
+#                         'Value' : config_name
+#                     },
+#                 ],
+#                 "Value": 1,
+#                 "Unit": "Count"
+#             }
+#         ]
+#     )
 
 
 def lambda_handler(event, context):
@@ -181,7 +181,7 @@ def lambda_handler(event, context):
         else:
             ads_url = "No Ads Request Url Present"
         logger.error("Event type: %s Config Name: %s       Event Time: %s Error: %s       Message: %s" % (event_type, config_name, event_time, ads_error, ads_log))
-        emit_metric(cw_client, metric_name, namespace, config_name)
+        # emit_metric(cw_client, metric_name, namespace, config_name)
 
         ##Log Event data from MediaTailor to Json in S3
         cw_logs = boto3.client('logs')
