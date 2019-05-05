@@ -6,7 +6,7 @@ Description: >
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 120
+    Timeout: 240
 
 Resources:
 
@@ -34,8 +34,11 @@ Resources:
                 Sid: BucketAccess
                 Effect: Allow
                 Action:
-                  - "s3:*"
-                Resource: "*"
+                  - "s3:PutObject"
+                  - "s3:CreateBucket"
+                Resource:
+                  - "arn:aws:s3:::<S3-BUCKET>/*"
+                  - "arn:aws:s3:::<S3-BUCKET>"
               -
                 Sid: LoggingAccess
                 Effect: Allow
@@ -70,11 +73,14 @@ Resources:
           #Log Level for Cloudwatch Logs
           LOG_LEVEL: info
           #Output bucket for finished files
-          DESTINATION_BUCKET: go-write-test
+          DESTINATION_BUCKET: <S3-BUCKET>
           #Timeout Time period for searching insights
-          START_INSIGHT_PAUSE: 45
+          START_INSIGHT_PAUSE: 5
       Tags:
-        Purpose: "Dev-testing"
+        purpose: "MediaTailor Errors sent to s3 Bucket"
+        built-by: "user"
+        stage: "Production"
+        team: "team"
 
   LogGroupLambdaInvokePermission:
     Type: AWS::Lambda::Permission
